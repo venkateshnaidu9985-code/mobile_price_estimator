@@ -1,0 +1,74 @@
+:root {
+  --bg: #0b1220;
+  --card: #151f33;
+  --text: #e5ecf6;
+  --muted: #8fa3bf;
+  --accent: #14b8a6;
+  --error: #f87171;
+  --border: #263552;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: radial-gradient(circle at top, #0f3d3a, var(--bg) 60%);
+  color: var(--text);
+}
+
+.card {
+  width: 100%;
+  max-width: 680px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+}
+
+h1 { margin: 0 0 .25rem; font-size: 1.6rem; }
+.subtitle { margin: 0 0 1.5rem; color: var(--muted); }
+
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+@media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
+
+label { display: flex; flex-direction: column; gap: .35rem; font-size: .85rem; color: var(--muted); }
+
+input, select {
+  padding: .65rem .75rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+input:focus, select:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+.actions { display: flex; gap: .75rem; margin-top: 1.5rem; }
+
+button {
+  padding: .7rem 1.3rem;
+  font: inherit;
+  font-weight: 600;
+  color: #04201d;
+  background: var(--accent);
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+button:hover { filter: brightness(1.1); }
+button.secondary { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+
+.result { margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--border); text-align: center; }
+.result .label { color: var(--muted); font-size: .85rem; text-transform: uppercase; letter-spacing: .08em; }
+.price { font-size: 2.6rem; font-weight: 800; color: var(--accent); margin: .25rem 0; }
+.range { color: var(--muted); }
+
+.error { margin-top: 1rem; color: var(--error); }
+.hidden { display: none; }

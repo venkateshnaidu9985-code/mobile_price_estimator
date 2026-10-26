@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mobile Price Estimator</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="card">
+    <h1>📱 Mobile Price Estimator</h1>
+    <p class="subtitle">Enter a phone's specs for an estimated price in INR. Conversion uses a fixed rate of ₹83 per USD.</p>
+
+    <form id="form" novalidate>
+      <div class="grid">
+        <label>Mobile company
+          <select name="brand">
+            {% for brand in brands %}
+            <option value="{{ brand }}">{{ brand }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Phone model
+          <select name="phone_model" id="phone-model" required>
+            <option value="">Select a model</option>
+            {% for brand, models in phone_models.items() %}
+            <optgroup label="{{ brand }}" data-brand="{{ brand }}">
+              {% for model in models %}
+              <option value="{{ model }}"
+                      data-launch-price="{{ model_prices[brand][model] or '' }}"
+                      data-default-ram="{{ model_memory[brand][model][0] }}"
+                      data-default-storage="{{ model_memory[brand][model][1] }}">{{ model }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endfor %}
+          </select>
+        </label>
+        <label>RAM (GB)
+          <input type="number" name="ram_gb" value="8" min="{{ limits.ram_gb[0] }}" max="{{ limits.ram_gb[1] }}" step="1">
+        </label>
+        <label>Storage (GB)
+          <input type="number" name="storage_gb" value="128" min="{{ limits.storage_gb[0] }}" max="{{ limits.storage_gb[1] }}" step="1">
+        </label>
+        <label>Battery (mAh)
+          <input type="number" name="battery_mah" value="5000" min="{{ limits.battery_mah[0] }}" max="{{ limits.battery_mah[1] }}" step="1">
+        </label>
+        <label>Main camera (MP)
+          <input type="number" name="camera_mp" value="50" min="{{ limits.camera_mp[0] }}" max="{{ limits.camera_mp[1] }}" step="1">
+        </label>
+        <label>Screen size (inch)
+          <input type="number" name="screen_inch" value="6.5" min="{{ limits.screen_inch[0] }}" max="{{ limits.screen_inch[1] }}" step="0.1">
+        </label>
+        <label>Refresh rate (Hz)
+          <input type="number" name="refresh_rate" value="120" min="{{ limits.refresh_rate[0] }}" max="{{ limits.refresh_rate[1] }}" step="1">
+        </label>
+        <label>5G support
+          <select name="has_5g">
+            <option value="1">Yes</option>
+            <option value="0">No</option>
+          </select>
+        </label>
+      </div>
+
+      <p id="model-price" class="subtitle" aria-live="polite">Choose a model to see its approximate India starting-price guide. These prices are not verified launch prices; availability and variants may differ.</p>
+      <p class="subtitle">Choose from 20 model names for each company. Selecting a model fills suggested RAM and storage defaults; variants may differ, and you can edit them before estimating.</p>
+      <div class="actions">
+        <button type="submit">Estimate price</button>
+        <button type="reset" class="secondary" id="reset">Reset</button>
+      </div>
+    </form>
+
+    <section id="result" class="result hidden" aria-live="polite">
+      <div class="label">Estimated price</div>
+      <div id="price" class="price"></div>
+      <div id="range" class="range"></div>
+    </section>
+    <p id="error" class="error hidden"></p>
+  </main>
+
+  <script>
+    const form = document.getElementById("form");
+    const resultEl = document.getElementById("result");
+    const errorEl = document.getElementById("error");
+    const brandSelect = form.elements.brand;
+    const modelSelect = document.getElementById("phone-model");
+    const modelGroups = Array.from(modelSelect.querySelectorAll("optgroup"));
+    const modelPriceEl = document.getElementById("model-price");
+    const fmt = n => new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0
+    }).format(n);
+
+    function updateModelPrice() {
+      const option = modelSelect.selectedOptions[0];
+      if (!option || !option.value) {
+        modelPriceEl.textContent = "Choose a model to see its approximate India starting-price guide. These prices are not verified launch prices; availability and variants may differ.";
+        return;
+      }
+      const price = option && option.dataset.launchPrice;
+      modelPriceEl.textContent = price
+        ? "Approximate India starting-price guide (not a verified launch price): " + fmt(Number(price)) +
+          ". Actual launch prices vary by RAM/storage variant and market."
+        : "No India launch-price guide is available for this model.";
+    }
+
+    function updateModelMemory() {
+      const option = modelSelect.selectedOptions[0];
+      if (option && option.value) {
+        form.elements.ram_gb.value = option.dataset.defaultRam;
+        form.elements.storage_gb.value = option.dataset.defaultStorage;
+      }
+    }
+
+    function updateModels() {
+      modelSelect.value = "";
+      modelGroups.forEach(group => {
+        group.hidden = group.dataset.brand !== brandSelect.value;
+      });
+      updateModelPrice();
+    }
+
+    brandSelect.addEventListener("change", () => {
+      updateModels();
+    });
+    modelSelect.addEventListener("change", () => {
+      updateModelPrice();
+      updateModelMemory();
+    });
+
+    updateModels();
+
+    function showError(msg) {
+      resultEl.classList.add("hidden");
+      errorEl.textContent = msg;
+      errorEl.classList.remove("hidden");
+    }
+
+    form.addEventListener("submit", async e => {
+      e.preventDefault();
+      errorEl.classList.add("hidden");
+      const payload = Object.fromEntries(new FormData(form).entries());
+      try {
+        const res = await fetch("/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) return showError(data.error || "Something went wrong.");
+        document.getElementById("price").textContent = fmt(data.price);
+        document.getElementById("range").textContent =
+          "Likely range: " + fmt(data.range[0]) + " – " + fmt(data.range[1]);
+        resultEl.classList.remove("hidden");
+      } catch (err) {
+        showError("Could not reach the server.");
+      }
+    });
+
+    document.getElementById("reset").addEventListener("click", () => {
+      resultEl.classList.add("hidden");
+      errorEl.classList.add("hidden");
+    });
+    form.addEventListener("reset", () => {
+      setTimeout(updateModels, 0);
+    });
+  </script>
+</body>
+</html>
